@@ -182,7 +182,7 @@
   .addrow2 .addcard{flex:1;}
 
   /* full-page pen overlay */
-  #penOverlay{position:fixed;inset:0;z-index:9998;display:none;touch-action:none;cursor:crosshair;}
+  #penOverlay{position:absolute;top:0;left:0;z-index:9998;display:none;cursor:crosshair;}
   #penOverlay.on{display:block;}
   #penBar{position:fixed;top:140px;right:20px;z-index:9999;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 16px rgba(30,39,97,.18);padding:8px;display:none;flex-direction:column;gap:6px;}
   #penBar.on{display:flex;}
@@ -196,9 +196,25 @@
   .resetmenu button{border:none;background:#fff;text-align:left;padding:10px 12px;border-radius:6px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--ink);white-space:nowrap;font-weight:bold;}
   .resetmenu button:hover{background:var(--red-bg);color:var(--red);}
 
+  /* logo watermark behind left nav */
+  .nav{position:relative;overflow:hidden;}
+  .nav::before{content:"";position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);width:150px;height:250px;background:var(--logo) center/contain no-repeat;opacity:.06;pointer-events:none;z-index:0;}
+  .nav .navlabel,.nav .navbtn{position:relative;z-index:1;}
+
+  /* draggable pen bar */
+  #penBar{top:auto;bottom:90px;right:24px;}
+  #penDrag{font-size:11px;color:var(--muted);text-align:center;cursor:grab;padding:2px 0 4px;border-bottom:1px solid var(--line);margin-bottom:2px;user-select:none;}
+  #penDrag:active{cursor:grabbing;}
+
+  /* zoom controls */
+  .zoomgrp{display:flex;align-items:center;gap:4px;}
+  .zoomgrp button{min-width:34px;font-weight:bold;}
+  .zoomgrp #zoomLvl{font-size:12px;color:var(--muted);min-width:42px;text-align:center;}
+
   /* image annotation layer inside rich card */
   .imgwrap{position:relative;}
-  .imgwrap canvas.annoLayer{position:absolute;inset:0;width:100%;height:100%;touch-action:none;}
+  .imgwrap canvas.annoLayer{position:absolute;inset:0;width:100%;height:100%;touch-action:none;pointer-events:none;}
+  .imgwrap canvas.annoLayer.writing{pointer-events:auto;cursor:crosshair;}
   .rcard .imgtools{display:flex;gap:6px;align-items:center;padding:6px 14px;border-top:1px solid var(--line);background:#F7F9FD;}
   .rcard .imgtools button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer;font-family:inherit;color:var(--ink);}
   .rcard .imgtools button.sel{background:var(--navy);color:#fff;border-color:var(--navy);}
@@ -214,6 +230,7 @@
 </head>
 <body>
 
+<div id="zoomRoot">
 <div class="topbar">
   <div class="brand"><img src="data:image/png;base64,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" alt="BGH" style="height:42px;width:auto;margin-right:6px;border-radius:4px;background:#fff;padding:3px"><div><h1>RÉUNION PRODUCTION — 10H00</h1><span class="sub">BGH Ltée · Goodlands</span></div></div>
   <div class="meta">
@@ -233,6 +250,7 @@
     <button id="btnUndo" title="Annuler (Ctrl+Z)">↶ Annuler</button>
     <button id="btnRedo" title="Rétablir (Ctrl+Y)">↷ Rétablir</button>
     <button id="btnPen" class="penbtn" title="Annoter par-dessus la page">🖊 Plume</button>
+    <span class="zoomgrp"><button id="zoomOut" title="Dézoomer">A−</button><span id="zoomLvl">100%</span><button id="zoomIn" title="Zoomer">A+</button></span>
     <span class="hint">Sauvegarde automatique sur cet appareil</span>
   </div>
   <div class="grp">
@@ -249,16 +267,6 @@
       </div>
     </div>
   </div>
-</div>
-
-<canvas id="penOverlay"></canvas>
-<div id="penBar">
-  <button id="pColB" class="sel" title="Bleu"><span class="swatch" style="background:#1E2761"></span>Bleu</button>
-  <button id="pColR" title="Rouge"><span class="swatch" style="background:#DC2626"></span>Rouge</button>
-  <button id="pColG" title="Vert"><span class="swatch" style="background:#16A34A"></span>Vert</button>
-  <button id="pErase" title="Gomme">🧽 Gomme</button>
-  <button id="pClear" title="Tout effacer">🗑 Effacer tout</button>
-  <button id="pClose" title="Quitter le mode plume">✕ Fermer</button>
 </div>
 
 <div class="shell">
@@ -382,6 +390,19 @@
     </section>
 
   </main>
+</div>
+</div><!-- /zoomRoot -->
+
+<canvas id="penOverlay"></canvas>
+<div id="penBar">
+  <div id="penDrag">⠿ déplacer</div>
+  <button id="pScroll" title="Basculer dessiner / défiler">✋ Défiler</button>
+  <button id="pColB" class="sel" title="Bleu"><span class="swatch" style="background:#1E2761"></span>Bleu</button>
+  <button id="pColR" title="Rouge"><span class="swatch" style="background:#DC2626"></span>Rouge</button>
+  <button id="pColG" title="Vert"><span class="swatch" style="background:#16A34A"></span>Vert</button>
+  <button id="pErase" title="Gomme">🧽 Gomme</button>
+  <button id="pClear" title="Tout effacer">🗑 Effacer tout</button>
+  <button id="pClose" title="Quitter le mode plume">✕ Fermer</button>
 </div>
 
 <script>
@@ -679,10 +700,13 @@ function richCard(item,arr,hostId,idx,opts){
 
   if(item.img){
     const it=document.createElement("div");it.className="imgtools";
-    it.innerHTML=`<span style="font-size:12px;color:var(--muted)">Écrire sur l'image :</span>`;
-    const mk=(label,fn,sel)=>{const bb=document.createElement("button");bb.textContent=label;if(sel)bb.classList.add("sel");bb.onclick=()=>{[...it.querySelectorAll("button")].forEach(x=>x.classList.remove("sel"));bb.classList.add("sel");fn();};return bb;};
-    const st={color:"#DC2626",erase:false};
-    it.appendChild(mk("Rouge",()=>{st.color="#DC2626";st.erase=false;},true));
+    const st={color:"#DC2626",erase:false,on:false};
+    const writeBtn=document.createElement("button");writeBtn.textContent="✍ Écrire";writeBtn.title="Activer l'écriture sur l'image";
+    writeBtn.onclick=()=>{st.on=!st.on;writeBtn.classList.toggle("sel",st.on);annoLayer.classList.toggle("writing",st.on);};
+    it.appendChild(writeBtn);
+    const mk=(label,fn)=>{const bb=document.createElement("button");bb.textContent=label;bb.onclick=()=>{[...it.querySelectorAll(".tool")].forEach(x=>x.classList.remove("sel"));bb.classList.add("sel");fn();if(!st.on){st.on=true;writeBtn.classList.add("sel");annoLayer.classList.add("writing");}};bb.classList.add("tool");return bb;};
+    const bRed=mk("Rouge",()=>{st.color="#DC2626";st.erase=false;});bRed.classList.add("sel");
+    it.appendChild(bRed);
     it.appendChild(mk("Bleu",()=>{st.color="#1E2761";st.erase=false;}));
     it.appendChild(mk("Gomme",()=>{st.erase=true;}));
     const bClear=document.createElement("button");bClear.textContent="Effacer";
@@ -889,25 +913,38 @@ const _origAddilot=true; // matrix add/remove pushUndo handled inside renderMatr
   const cv=document.getElementById("penOverlay");
   const bar=document.getElementById("penBar");
   const btn=document.getElementById("btnPen");
+  const scrollBtn=document.getElementById("pScroll");
   if(!cv||!btn)return;
   const ctx=cv.getContext("2d");
-  let active=false,drawing=false,color="#1E2761",erase=false,last=null;
-  function size(){cv.width=window.innerWidth;cv.height=window.innerHeight;}
-  function setColor(c,el){color=c;erase=false;[...bar.querySelectorAll("button")].forEach(b=>b.classList.remove("sel"));el.classList.add("sel");}
+  let active=false,drawing=false,color="#1E2761",erase=false,last=null,scrollMode=false;
+  function docH(){return Math.max(document.body.scrollHeight,document.documentElement.scrollHeight,window.innerHeight);}
+  function docW(){return Math.max(document.body.scrollWidth,document.documentElement.scrollWidth,window.innerWidth);}
+  function size(){
+    const d=cv.width&&cv.height?ctx.getImageData(0,0,cv.width,cv.height):null;
+    cv.width=docW();cv.height=docH();cv.style.width=cv.width+"px";cv.style.height=cv.height+"px";
+    if(d)ctx.putImageData(d,0,0);
+  }
+  function applyMode(){
+    cv.style.pointerEvents=scrollMode?"none":"auto";
+    cv.style.touchAction=scrollMode?"auto":"none";
+    if(scrollBtn){scrollBtn.textContent=scrollMode?"🖊 Dessiner":"✋ Défiler";scrollBtn.classList.toggle("sel",scrollMode);}
+  }
+  function setColor(c,el){color=c;erase=false;scrollMode=false;[...bar.querySelectorAll("button")].forEach(b=>b.classList.remove("sel"));el.classList.add("sel");applyMode();}
   function toggle(on){
     active=on;cv.classList.toggle("on",on);bar.classList.toggle("on",on);btn.classList.toggle("sel",on);
-    if(on){size();}
+    if(on){scrollMode=false;size();applyMode();}
   }
   btn.onclick=()=>toggle(!active);
   document.getElementById("pClose").onclick=()=>toggle(false);
+  if(scrollBtn)scrollBtn.onclick=()=>{scrollMode=!scrollMode;[...bar.querySelectorAll("button")].forEach(b=>b.classList.remove("sel"));if(scrollMode)scrollBtn.classList.add("sel");applyMode();};
   document.getElementById("pColB").onclick=e=>setColor("#1E2761",e.currentTarget);
   document.getElementById("pColR").onclick=e=>setColor("#DC2626",e.currentTarget);
   document.getElementById("pColG").onclick=e=>setColor("#16A34A",e.currentTarget);
-  document.getElementById("pErase").onclick=e=>{erase=true;[...bar.querySelectorAll("button")].forEach(b=>b.classList.remove("sel"));e.currentTarget.classList.add("sel");};
+  document.getElementById("pErase").onclick=e=>{erase=true;scrollMode=false;[...bar.querySelectorAll("button")].forEach(b=>b.classList.remove("sel"));e.currentTarget.classList.add("sel");applyMode();};
   document.getElementById("pClear").onclick=()=>ctx.clearRect(0,0,cv.width,cv.height);
-  window.addEventListener("resize",()=>{if(active){const d=ctx.getImageData(0,0,cv.width,cv.height);size();ctx.putImageData(d,0,0);}});
-  const pos=e=>[e.clientX,e.clientY];
-  cv.addEventListener("pointerdown",e=>{drawing=true;cv.setPointerCapture(e.pointerId);last=pos(e);});
+  window.addEventListener("resize",()=>{if(active)size();});
+  const pos=e=>[e.pageX,e.pageY];
+  cv.addEventListener("pointerdown",e=>{if(scrollMode)return;drawing=true;cv.setPointerCapture(e.pointerId);last=pos(e);});
   cv.addEventListener("pointermove",e=>{
     if(!drawing)return;const p=pos(e);
     ctx.lineCap="round";ctx.lineJoin="round";
@@ -917,6 +954,30 @@ const _origAddilot=true; // matrix add/remove pushUndo handled inside renderMatr
   });
   const end=()=>{drawing=false;};
   cv.addEventListener("pointerup",end);cv.addEventListener("pointerleave",end);
+})();
+
+/* ---------------- pen bar draggable ---------------- */
+(function(){
+  const bar=document.getElementById("penBar"),h=document.getElementById("penDrag");
+  if(!bar||!h)return;let dx=0,dy=0,drag=false;
+  h.addEventListener("pointerdown",e=>{drag=true;const r=bar.getBoundingClientRect();dx=e.clientX-r.left;dy=e.clientY-r.top;h.setPointerCapture(e.pointerId);});
+  document.addEventListener("pointermove",e=>{if(!drag)return;bar.style.left=Math.max(0,e.clientX-dx)+"px";bar.style.top=Math.max(0,e.clientY-dy)+"px";bar.style.right="auto";bar.style.bottom="auto";});
+  document.addEventListener("pointerup",()=>drag=false);
+})();
+
+/* ---------------- zoom ---------------- */
+let zoomLevel=1;
+function applyZoom(){const z=document.getElementById("zoomRoot");if(z)z.style.zoom=zoomLevel;const l=document.getElementById("zoomLvl");if(l)l.textContent=Math.round(zoomLevel*100)+"%";}
+(function(){
+  const zi=document.getElementById("zoomIn"),zo=document.getElementById("zoomOut");
+  if(zi)zi.onclick=()=>{zoomLevel=Math.min(2,Math.round((zoomLevel+0.1)*10)/10);applyZoom();};
+  if(zo)zo.onclick=()=>{zoomLevel=Math.max(0.5,Math.round((zoomLevel-0.1)*10)/10);applyZoom();};
+})();
+
+/* ---------------- logo watermark ---------------- */
+(function(){
+  const img=document.querySelector(".brand img");
+  if(img)document.documentElement.style.setProperty("--logo","url("+img.src+")");
 })();
 
 loadInitial();
