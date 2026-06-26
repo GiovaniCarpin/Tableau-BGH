@@ -98,9 +98,15 @@
   tr.grandtot td{background:var(--navy-deep);color:#fff;padding:12px;font-weight:bold;font-size:15px;text-align:center;}
   tr.grandtot td.lbl{text-align:right;}
   .matrix-note{font-size:13px;color:var(--muted);padding:10px 14px;background:#F7F9FD;border-top:1px solid var(--line);}
+  .ilotname .theo{display:inline-flex;align-items:center;gap:3px;margin-left:10px;vertical-align:middle;}
+  .ilotname .theo input{width:48px;border:1px solid var(--line);border-radius:5px;padding:2px 4px;font-family:inherit;font-size:11px;text-align:center;color:var(--amber);background:#FFFDF5;}
+  .ilotname .theo .sep{color:var(--muted2);font-size:11px;}
 
   /* Card grids & panels */
   .grid{display:grid;gap:16px;grid-template-columns:repeat(3,1fr);}
+  .richgrid{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;}
+  .richgrid .rcard{width:360px;flex:0 1 auto;max-width:100%;resize:both;overflow:auto;}
+  .richgrid .rcard.card{resize:none;}
   .grid.two{grid-template-columns:repeat(2,1fr);}
   .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;}
   .panel>h3{margin:0;padding:12px 16px;font-size:15px;color:#fff;letter-spacing:.5px;display:flex;align-items:center;justify-content:space-between;}
@@ -290,13 +296,13 @@
       <div class="matrix-wrap">
         <table class="matrix">
           <thead><tr>
-            <th class="ilotcol">Îlot / type de pièce</th>
+            <th class="ilotcol">Îlot / type de pièce <span style="font-weight:normal;opacity:.7;font-size:11px">· objectif théo. /jour · /sem</span></th>
             <th class="today">Jeu</th><th>Ven</th><th>Lun</th><th>Mar</th><th>Mer</th>
             <th class="totcol">Sem.</th>
           </tr></thead>
           <tbody id="matrixBody"></tbody>
         </table>
-        <div class="matrix-note">Chaque responsable saisit uniquement les lignes de son atelier · Chiffres cumulatifs (PCS) · colonne Sem. = dernier jour saisi · RAZ vendredi matin (Ven→Mer), le chiffre de jeudi est conservé.</div>
+        <div class="matrix-note">Chaque responsable saisit uniquement les lignes de son atelier · colonne Sem. = somme des jours saisis · objectif théorique éditable à côté de chaque îlot · RAZ vendredi matin.</div>
       </div>
 
       <h4 class="blockhead">Priorités · production bloquée · machines en panne</h4>
@@ -342,7 +348,7 @@
         </div>
       </div>
       <h4 class="blockhead">Images &amp; documents — posages, plans, essais</h4>
-      <div class="grid" id="methImages"></div>
+      <div class="richgrid" id="methImages"></div>
     </section>
 
     <!-- QUALITE -->
@@ -367,7 +373,7 @@
       </div>
 
       <h4 class="blockhead">Suivi qualité — problèmes &amp; demandes client (titre + image + texte + annotation plume)</h4>
-      <div class="grid" id="qualList"></div>
+      <div class="richgrid" id="qualList"></div>
     </section>
 
     <!-- MAINTENANCE -->
@@ -375,7 +381,7 @@
       <div class="sechead"><h2>Maintenance</h2><span class="anim">Remontée verbale par le responsable d'atelier</span></div>
       <div class="grid" id="maintList"></div>
       <h4 class="blockhead">Images &amp; documents — machines, pièces</h4>
-      <div class="grid" id="maintImages"></div>
+      <div class="richgrid" id="maintImages"></div>
     </section>
 
     <!-- ACHAT -->
@@ -387,7 +393,7 @@
     <!-- INFO -->
     <section class="section" id="sec-info">
       <div class="sechead"><h2>Info divers</h2><span class="anim">Hors routine — clôture par Sirop, Giovani ou Dharsani</span></div>
-      <div class="grid" id="infoList"></div>
+      <div class="richgrid" id="infoList"></div>
     </section>
 
   </main>
@@ -522,11 +528,15 @@ function renderMatrix(){
 }
 function ilotRow(at,ai,r,ri){
   const tr=document.createElement("tr");tr.className="ilot grp-"+at.key;
-  let cells=`<td class="ilotname"><button class="rmilot" title="Supprimer">×</button><span class="nm" contenteditable data-ph="Nom de l'îlot">${r[0]}</span></td>`;
+  const tj=r[2]||0,ts=r[3]||0;
+  let cells=`<td class="ilotname"><button class="rmilot" title="Supprimer">×</button><span class="nm" contenteditable data-ph="Nom de l'îlot">${r[0]}</span>`+
+    `<span class="theo" title="Objectif théorique"><input class="theoj" type="text" inputmode="numeric" value="${tj?fmt(tj):""}" data-at="${ai}" data-ri="${ri}" placeholder="/j"><span class="sep">·</span><input class="theos" type="text" inputmode="numeric" value="${ts?fmt(ts):""}" data-at="${ai}" data-ri="${ri}" placeholder="/sem"></span></td>`;
   r[1].forEach((v,i)=>cells+=`<td class="daycell${i===TODAY?" today":""}"><input class="qty" type="text" inputmode="numeric" value="${v?fmt(v):""}" data-at="${ai}" data-ri="${ri}" data-di="${i}"></td>`);
   cells+=`<td class="rowtot" id="rt-${ai}-${ri}">0</td>`;
   tr.innerHTML=cells;
   tr.querySelector(".nm").addEventListener("input",e=>{ateliers[ai].ilots[ri][0]=e.target.textContent;});
+  tr.querySelector(".theoj").addEventListener("input",e=>{const a=ateliers[+e.target.dataset.at].ilots[+e.target.dataset.ri];a[2]=parseNum(e.target.value);});
+  tr.querySelector(".theos").addEventListener("input",e=>{const a=ateliers[+e.target.dataset.at].ilots[+e.target.dataset.ri];a[3]=parseNum(e.target.value);});
   tr.querySelector(".rmilot").addEventListener("click",()=>{pushUndo();ateliers[ai].ilots.splice(ri,1);renderMatrix();save();});
   tr.querySelectorAll("input.qty").forEach(inp=>inp.addEventListener("input",e=>{
     ateliers[+e.target.dataset.at].ilots[+e.target.dataset.ri][1][+e.target.dataset.di]=parseNum(e.target.value);recompute();
@@ -538,11 +548,11 @@ function recompute(){
   ateliers.forEach((at,ai)=>{
     const sub=[0,0,0,0,0];let subSem=0;
     at.ilots.forEach((r,ri)=>{
-      const sem=lastDay(r[1]);const cell=document.getElementById(`rt-${ai}-${ri}`);if(cell)cell.textContent=fmt(sem);
+      const sem=r[1].reduce((a,b)=>a+(b||0),0);const cell=document.getElementById(`rt-${ai}-${ri}`);if(cell)cell.textContent=fmt(sem);
       r[1].forEach((v,i)=>sub[i]+=v);subSem+=sem;
     });
     sub.forEach((v,i)=>grand[i]+=v);grandSem+=subSem;
-    const gs=document.getElementById("gs-"+at.key);if(gs)gs.textContent="cumul "+fmt(subSem);
+    const gs=document.getElementById("gs-"+at.key);if(gs)gs.textContent="total "+fmt(subSem);
   });
   const g=document.getElementById("grandtot");
   if(g){const tds=g.querySelectorAll("td");grand.forEach((v,i)=>tds[i+1].textContent=fmt(v));tds[6].textContent=fmt(grandSem);}
@@ -716,9 +726,10 @@ function fillPanel(elId,arr,opts){
 /* ---------------- rich cards (Qualité + Info divers) ---------------- */
 function richCard(item,arr,hostId,idx,opts){
   const c=document.createElement("div");c.className="rcard";
-  c.style.resize="vertical";c.style.overflow="auto";
+  c.style.overflow="auto";
+  if(item.w)c.style.width=item.w+"px";
   if(item.h)c.style.height=item.h+"px";
-  c.addEventListener("pointerup",()=>{const h=c.offsetHeight;if(Math.abs((item.h||0)-h)>4){item.h=h;autosave();}});
+  c.addEventListener("pointerup",()=>{const w=c.offsetWidth,h=c.offsetHeight;let ch=false;if(Math.abs((item.w||0)-w)>4){item.w=w;ch=true;}if(Math.abs((item.h||0)-h)>4){item.h=h;ch=true;}if(ch)autosave();});
 
   const rm=document.createElement("button");rm.className="rm";rm.textContent="×";
   rm.onclick=()=>{pushUndo();arr.splice(idx,1);renderRich(arr,hostId,opts);save();};c.appendChild(rm);
