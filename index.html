@@ -621,11 +621,12 @@ function importJSON(file){const r=new FileReader();r.onload=ev=>{try{pushUndo();
 function resetAll(){if(confirm("Recharger les données d'exemple ? Tout sera remplacé.")){try{localStorage.removeItem(KEY);localStorage.removeItem(KEY+"_ts");localStorage.removeItem(KEY+"_secTs");}catch(e){}if(secRef){secRef.remove().catch(()=>{});}location.reload();}}
 function razChiffres(){pushUndo();ateliers.forEach(a=>a.ilots.forEach(r=>{r[1]=[0,0,0,0,0];}));for(let i=0;i<caData.length;i++)caData[i]=0;renderEverything();save();}
 function viderCartes(){pushUndo();priorites=[];bloque=[];machines=[];soumissions=[];amelioration=[];posages=[];passsup=[];topVeille=[];topSemaine=[];qualite=[];maintenance=[];achat=[];infos=[];methImages=[];maintImages=[];renderEverything();save();}
-function loadInitial(){try{const s=localStorage.getItem(KEY);if(s)applyState(JSON.parse(s));const t=localStorage.getItem(KEY+"_ts");if(t)localTs=+t;}catch(e){}}
+let hadLocal=false;
+function loadInitial(){try{const s=localStorage.getItem(KEY);if(s){applyState(JSON.parse(s));hadLocal=true;}const t=localStorage.getItem(KEY+"_ts");if(t)localTs=+t;}catch(e){}}
 
 /* ---- realtime sync (par section, pour fusionner les modifications simultanées) ---- */
 const SECTION_KEYS=["caData","ateliers","priorites","bloque","machines","soumissions","amelioration","posages","passsup","topVeille","topSemaine","qualite","maintenance","achat","infos","methImages","maintImages"];
-let secRef=null,applyingRemote=false;
+let secRef=null,applyingRemote=false,syncReady=false;
 let lastSyncedSection={},sectionTs={},pendingSections={};
 function getSection(k){return {caData,ateliers,priorites,bloque,machines,soumissions,amelioration,posages,passsup,topVeille,topSemaine,qualite,maintenance,achat,infos,methImages,maintImages}[k];}
 function setSection(k,v){
@@ -646,7 +647,7 @@ function persistSecTs(){try{localStorage.setItem(KEY+"_secTs",JSON.stringify(sec
 function loadSecTs(){try{const t=localStorage.getItem(KEY+"_secTs");if(t)sectionTs=JSON.parse(t);}catch(e){}}
 function isEditing(){const a=document.activeElement;return a&&a.matches&&a.matches("[contenteditable],input");}
 function pushRemote(force){
-  if(!secRef)return;let any=false;
+  if(!secRef||!syncReady)return;let any=false;
   SECTION_KEYS.forEach(k=>{
     const j=JSON.stringify(getSection(k));
     if(force||j!==lastSyncedSection[k]){
@@ -684,9 +685,31 @@ function initSync(){
     firebase.initializeApp(FIREBASE_CONFIG);
     secRef=firebase.database().ref("board/sections");
     setSync("Connexion…","wait");
-    secRef.once("value",sn=>{ if(!sn.val()) pushRemote(true); });   // base vide -> on l'initialise avec le local
-    secRef.on("child_added",applyChild);
-    secRef.on("child_changed",applyChild);
+    // On attend d'abord l'état réel du serveur avant d'envoyer quoi que ce soit.
+    secRef.once("value",sn=>{
+      const v=sn.val();
+      if(v&&Object.keys(v).length){
+        // Firebase contient déjà des données -> source de vérité. L'exemple local est ignoré.
+        applyingRemote=true;let pushNeeded=false;
+        SECTION_KEYS.forEach(k=>{
+          const val=v[k],rts=(val&&val.ts)||0;
+          if(val&&typeof val.json==="string"&&rts>=(sectionTs[k]||0)){
+            lastSyncedSection[k]=val.json;sectionTs[k]=rts;
+            try{setSection(k,JSON.parse(val.json));}catch(e){}
+          }else if(hadLocal){
+            pushNeeded=true;   // ce poste a de vraies données locales plus récentes -> à renvoyer
+          }
+        });
+        renderEverything();saveLocal();persistSecTs();applyingRemote=false;
+        syncReady=true;setSync("Partagé · à jour","ok");
+        if(pushNeeded)pushRemote(false);
+      }else{
+        // Base réellement vide -> tout premier amorçage avec les données d'exemple.
+        syncReady=true;pushRemote(true);
+      }
+      secRef.on("child_added",applyChild);
+      secRef.on("child_changed",applyChild);
+    });
     firebase.database().ref(".info/connected").on("value",s=>{setSync(s.val()?"Partagé · à jour":"Hors-ligne (reconnexion…)",s.val()?"ok":"wait");});
   }catch(e){setSync("Mode local (sync indisponible)","local");}
 }
