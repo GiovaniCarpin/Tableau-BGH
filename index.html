@@ -773,11 +773,11 @@ function applyCellValue(cellId,val){
     }
     return;
   }
-  if(cellId.startsWith("ca")){
+  if(/^ca\d+$/.test(cellId)){
     const idx=+cellId.slice(2);if(!isNaN(idx)&&idx>=0&&idx<caData.length)caData[idx]=val;
     return;
   }
-  if(cellId.startsWith("passsup")){
+  if(/^passsup\d+$/.test(cellId)){
     const idx=+cellId.slice(7);if(!isNaN(idx)&&idx>=0)passsup[idx]=val;
     return;
   }
@@ -1143,7 +1143,7 @@ document.getElementById("rzExemple").onclick=()=>{rMenu.classList.remove("on");r
 const pageLoadTs=Date.now();
 function showClosed(){const o=document.getElementById("closedOverlay");if(o)o.classList.add("on");try{window.close();}catch(e){}}
 function closeAll(){
-  if(secRef){firebase.database().ref("board/command").set({action:"close",ts:Date.now()}).catch(()=>{});}
+  if(cellsRef){firebase.database().ref("board/command").set({action:"close",ts:Date.now()}).catch(()=>{});}
   showClosed();
 }
 document.getElementById("rzCloseAll").onclick=()=>{rMenu.classList.remove("on");if(confirm("Fermer le tableau sur TOUS les postes connectés ?"))closeAll();};
