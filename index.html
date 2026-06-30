@@ -522,6 +522,13 @@ const ateliers=[
 ensureIlotIds(ateliers);
 
 const caData=[23019, 19684, 16000, 0, 0];
+// status sets: ordered [label, color] — click on a pill cycles to the next
+const STATUS_SETS={
+  soum:[["Attente","amber"],["Acceptée","green"],["Refusée","red"]],
+  flow:[["À traiter","red"],["En cours","amber"],["Résolu","green"]],
+  stock:[["Rupture","red"],["À commander","amber"],["Reçu","green"]],
+};
+const o=(t,d,status)=>({t,d,status,id:uid()});
 let priorites=[["MAIL5429/P","Perçage","p0"],["","","umr0bolvt18"]];
 let bloque=[{t:"FERM2120",d:"Posages manquants — à fabriquer",status:"En cours",id:"umqz3miko0"},{t:"FERM2651/P",d:"Posage TT100 - emerisage dessous",status:"En cours",id:"umqz47bbi17"},{t:"H IWC - MAIL5697",d:"Tempo à faire",status:"En cours",id:"umqz47osm18"},{t:"FERM2516",d:"Posage émerisage dessous",status:"En cours",id:"umr0b5no213"}];
 let machines=[{t:"",d:"",status:"À traiter",id:"umqz48j2l1a"}];
