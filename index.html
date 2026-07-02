@@ -584,13 +584,24 @@ function renderMatrix(){
   body.appendChild(g);
 
   body.querySelectorAll(".gname").forEach(gn=>gn.addEventListener("click",()=>{
+    const key=gn.dataset.g;
     const gr=gn.closest(".grouprow");gr.classList.toggle("collapsed");
     const hide=gr.classList.contains("collapsed");
-    body.querySelectorAll(".grp-"+gn.dataset.g).forEach(r=>r.style.display=hide?"none":"");
+    if(hide)collapsedAteliers.add(key);else collapsedAteliers.delete(key);
+    persistCollapsed();
+    body.querySelectorAll(".grp-"+key).forEach(r=>r.style.display=hide?"none":"");
   }));
   body.querySelectorAll("[data-addilot]").forEach(b=>b.addEventListener("click",()=>{
     pushUndo();const ai=+b.dataset.addilot;const newRow=["Nouvel îlot",[0,0,0,0,0],0,0,uid()];ateliers[ai].ilots.push(newRow);renderMatrix();save();pushIlot(ai,ateliers[ai].ilots.length-1);
   }));
+  // Réappliquer l'état de repli mémorisé (sinon toute reconstruction du tableau rouvre les ateliers)
+  ateliers.forEach(at=>{
+    if(collapsedAteliers.has(at.key)){
+      const gr=body.querySelector('.grouprow[data-g="'+at.key+'"]');
+      if(gr)gr.classList.add("collapsed");
+      body.querySelectorAll(".grp-"+at.key).forEach(r=>r.style.display="none");
+    }
+  });
   recompute();
 }
 function ilotRow(at,ai,r,ri){
@@ -601,13 +612,13 @@ function ilotRow(at,ai,r,ri){
   r[1].forEach((v,i)=>cells+=`<td class="daycell${i===TODAY?" today":""}"><input class="qty" type="text" inputmode="numeric" value="${v?fmt(v):""}" data-at="${ai}" data-ri="${ri}" data-di="${i}"></td>`);
   cells+=`<td class="rowtot" id="rt-${ai}-${ri}">0</td>`;
   tr.innerHTML=cells;
-  tr.querySelector(".nm").addEventListener("input",e=>{ateliers[ai].ilots[ri][0]=e.target.textContent;pushIlot(ai,ri);autosave();});
-  tr.querySelector(".theoj").addEventListener("input",e=>{const a=ateliers[+e.target.dataset.at].ilots[+e.target.dataset.ri];a[2]=parseNum(e.target.value);pushIlot(+e.target.dataset.at,+e.target.dataset.ri);autosave();});
-  tr.querySelector(".theos").addEventListener("input",e=>{const a=ateliers[+e.target.dataset.at].ilots[+e.target.dataset.ri];a[3]=parseNum(e.target.value);pushIlot(+e.target.dataset.at,+e.target.dataset.ri);autosave();});
-  tr.querySelector(".rmilot").addEventListener("click",()=>{pushUndo();const id=ateliers[ai].ilots[ri][4];ateliers[ai].ilots.splice(ri,1);renderMatrix();save();if(id)pushDelete("ilot_"+id);});
+  tr.querySelector(".nm").addEventListener("input",e=>{ateliers[ai].ilots[ri][0]=e.target.textContent;pushIlotMeta(ai,ri);autosave();});
+  tr.querySelector(".theoj").addEventListener("input",e=>{const a=ateliers[+e.target.dataset.at].ilots[+e.target.dataset.ri];a[2]=parseNum(e.target.value);pushIlotMeta(+e.target.dataset.at,+e.target.dataset.ri);autosave();});
+  tr.querySelector(".theos").addEventListener("input",e=>{const a=ateliers[+e.target.dataset.at].ilots[+e.target.dataset.ri];a[3]=parseNum(e.target.value);pushIlotMeta(+e.target.dataset.at,+e.target.dataset.ri);autosave();});
+  tr.querySelector(".rmilot").addEventListener("click",()=>{pushUndo();const id=ateliers[ai].ilots[ri][4];ateliers[ai].ilots.splice(ri,1);renderMatrix();save();if(id){pushDelete("ilot_"+id);for(let i=0;i<5;i++)pushDelete("ild_"+id+"_"+i);}});
   tr.querySelectorAll("input.qty").forEach(inp=>inp.addEventListener("input",e=>{
-    const a=+e.target.dataset.at,r2=+e.target.dataset.ri;
-    ateliers[a].ilots[r2][1][+e.target.dataset.di]=parseNum(e.target.value);recompute();pushIlot(a,r2);autosave();
+    const a=+e.target.dataset.at,r2=+e.target.dataset.ri,di=+e.target.dataset.di;
+    ateliers[a].ilots[r2][1][di]=parseNum(e.target.value);recompute();pushIlotDay(a,r2,di);autosave();
   }));
   return tr;
 }
@@ -647,6 +658,11 @@ function renderPass(){
 
 /* ================= STATE: save / undo / export ================= */
 const KEY="bgh_tableau_v1";
+
+/* --- État de repli des ateliers (préférence locale à chaque poste, non partagée) --- */
+let collapsedAteliers=new Set();
+try{const c=localStorage.getItem(KEY+"_collapsed");if(c)collapsedAteliers=new Set(JSON.parse(c));}catch(e){}
+function persistCollapsed(){try{localStorage.setItem(KEY+"_collapsed",JSON.stringify([...collapsedAteliers]));}catch(e){}}
 
 /* ====== SYNCHRONISATION PARTAGÉE (optionnelle) ======
    Pour que les modifications apparaissent sur TOUS les PC en temps réel,
@@ -694,7 +710,7 @@ function razChiffres(){
   ateliers.forEach(a=>a.ilots.forEach(r=>{r[1]=[0,0,0,0,0];}));
   for(let i=0;i<caData.length;i++)caData[i]=0;
   renderEverything();save();
-  ateliers.forEach((a,ai)=>a.ilots.forEach((r,ri)=>pushIlot(ai,ri)));
+  ateliers.forEach((a,ai)=>a.ilots.forEach((r,ri)=>{for(let i=0;i<5;i++)pushIlotDay(ai,ri,i);}));
   caData.forEach((v,i)=>pushCA(i));
   flushQueue();
 }
@@ -764,8 +780,14 @@ function flushQueue(){
 }
 // CA : une cellule par jour -> "ca0".."ca4"
 function pushCA(dayIdx){queueCell("ca"+dayIdx,caData[dayIdx]);}
-// Matrice : une cellule par îlot (toute la ligne, identifiée par son id stable)
-function pushIlot(ai,ri){const r=ateliers[ai].ilots[ri];const id=r[4];if(id)queueCell("ilot_"+id,r);}
+// Matrice : granularité par cellule réelle.
+//  - "ilot_{id}"     = métadonnées de la ligne {n:nom, j:théo/j, s:théo/sem, k:atelier}  (SANS les chiffres jour)
+//  - "ild_{id}_{i}"  = le chiffre du jour i (0..4) de cet îlot, chacun sa propre cellule
+// Ainsi deux personnes qui saisissent des jours différents du MÊME îlot n'écrasent plus la ligne entière.
+function pushIlotMeta(ai,ri){const r=ateliers[ai].ilots[ri];const id=r[4];if(id)queueCell("ilot_"+id,{n:r[0],j:r[2]||0,s:r[3]||0,k:ateliers[ai].key});}
+function pushIlotDay(ai,ri,di){const r=ateliers[ai].ilots[ri];const id=r[4];if(id)queueCell("ild_"+id+"_"+di,r[1][di]||0);}
+// Helper : pousse la ligne complète (méta + les 5 jours). Utilisé pour l'ajout d'îlot, le reseed et la RAZ.
+function pushIlot(ai,ri){const r=ateliers[ai].ilots[ri];const id=r[4];if(!id)return;pushIlotMeta(ai,ri);for(let i=0;i<5;i++)pushIlotDay(ai,ri,i);}
 // Cartes de liste : une cellule par carte
 function pushCard(section,item){const id=itemId(item);if(id)queueCell("card_"+section+"_"+id,item);}
 // Suppression d'une carte/îlot -> on écrit un tombstone {deleted:true}
@@ -778,8 +800,16 @@ function pushDelete(cellId){
   persistCellTs();
 }
 
+// Retrouve une ligne d'îlot par son id stable, à travers tous les ateliers.
+function findIlot(id){for(const a of ateliers){const i=a.ilots.findIndex(r=>r[4]===id);if(i>=0)return{a,i,row:a.ilots[i]};}return null;}
+function atelierByKey(k){return ateliers.find(a=>a.key===k)||ateliers[0]||null;}
+
 function applyCellValue(cellId,val){
   if(val===null){ // suppression distante
+    if(cellId.startsWith("ild_")){
+      // suppression d'une cellule jour orpheline : rien à faire (la ligne part via son tombstone "ilot_")
+      return;
+    }
     if(cellId.startsWith("ilot_")){
       const targetId=cellId.slice(5);
       ateliers.forEach(a=>{const i=a.ilots.findIndex(r=>r[4]===targetId);if(i>=0)a.ilots.splice(i,1);});
@@ -797,14 +827,37 @@ function applyCellValue(cellId,val){
     const idx=+cellId.slice(7);if(!isNaN(idx)&&idx>=0)passsup[idx]=val;
     return;
   }
+  // Chiffre d'un jour d'un îlot : "ild_{id}_{i}"
+  if(cellId.startsWith("ild_")){
+    const rest=cellId.slice(4);const us=rest.lastIndexOf("_");
+    if(us<0)return;
+    const id=rest.slice(0,us),di=+rest.slice(us+1);
+    if(isNaN(di)||di<0||di>4)return;
+    let f=findIlot(id);
+    if(!f){ // filet de sécurité : jour reçu avant sa méta -> ligne provisoire, corrigée à l'arrivée de la méta
+      if(!ateliers.length)return;
+      const row=["", [0,0,0,0,0],0,0,id];ateliers[0].ilots.push(row);f={row};
+    }
+    f.row[1][di]=val;
+    return;
+  }
+  // Métadonnées d'un îlot : "ilot_{id}"  (nouvel objet {n,j,s,k}, ou ancien format = ligne entière)
   if(cellId.startsWith("ilot_")){
     const targetId=cellId.slice(5);
-    for(const a of ateliers){
-      const i=a.ilots.findIndex(r=>r[4]===targetId);
-      if(i>=0){a.ilots[i]=val;return;}
+    if(Array.isArray(val)){ // rétrocompat : ancienne cellule "ligne entière"
+      const f=findIlot(targetId);
+      if(f){f.a.ilots[f.i]=val;}else if(ateliers.length){ateliers[0].ilots.push(val);}
+      return;
     }
-    // îlot inconnu ici -> ajouté ailleurs, on l'ajoute au premier atelier par défaut
-    if(ateliers.length)ateliers[0].ilots.push(val);
+    // nouvel objet méta : ne touche PAS aux chiffres jour (r[1]), qui vivent dans les cellules "ild_"
+    const f=findIlot(targetId);
+    if(f){
+      if(typeof val.n==="string")f.row[0]=val.n;
+      f.row[2]=val.j||0;f.row[3]=val.s||0;
+    }else{
+      const at=atelierByKey(val.k);if(!at)return;
+      at.ilots.push([val.n||"", [0,0,0,0,0], val.j||0, val.s||0, targetId]);
+    }
     return;
   }
   if(cellId.startsWith("card_")){
@@ -839,7 +892,7 @@ function seedAllCells(){
   // tout premier amorçage d'une base vide : on pousse chaque cellule individuellement
   caData.forEach((v,i)=>queueCell("ca"+i,v));
   passsup.forEach((row,i)=>queueCell("passsup"+i,row));
-  ateliers.forEach(a=>a.ilots.forEach(r=>{if(r[4])queueCell("ilot_"+r[4],r);}));
+  ateliers.forEach(a=>a.ilots.forEach(r=>{if(r[4]){queueCell("ilot_"+r[4],{n:r[0],j:r[2]||0,s:r[3]||0,k:a.key});for(let i=0;i<5;i++)queueCell("ild_"+r[4]+"_"+i,r[1][i]||0);}}));
   Object.keys(LIST_VARS).forEach(section=>{LIST_VARS[section]().forEach(it=>{const id=itemId(it);if(id)queueCell("card_"+section+"_"+id,it);});});
   flushQueue();
 }
@@ -855,15 +908,32 @@ function initSync(){
         if(v&&Object.keys(v).length){
           // Firebase contient déjà des cellules réelles -> source de vérité, l'exemple local est ignoré.
           applyingRemote=true;let skipped=0;
-          Object.keys(v).forEach(cellId=>{
+          // Deux passes : les cellules "ild_" (chiffres jour) doivent s'appliquer APRÈS les méta "ilot_"
+          // qui créent les lignes, sinon un jour reçu en premier n'a pas de ligne où se poser.
+          const keys=Object.keys(v);
+          const pass2=k=>k.startsWith("ild_");   // jours appliqués en second
+          const ordered=keys.filter(k=>!pass2(k)).concat(keys.filter(pass2));
+          const legacyIds=[];   // ids d'îlots stockés à l'ancien format "ligne entière" -> à migrer
+          ordered.forEach(cellId=>{
             try{
               const val=v[cellId];if(!val||typeof val.json!=="string")return;
               const rts=val.ts||0;cellTs[cellId]=rts;
-              applyCellValue(cellId,val.deleted?null:JSON.parse(val.json));
+              const parsed=val.deleted?null:JSON.parse(val.json);
+              if(!val.deleted&&cellId.startsWith("ilot_")&&Array.isArray(parsed))legacyIds.push(cellId.slice(5));
+              applyCellValue(cellId,parsed);
             }catch(cellErr){skipped++;}   // une cellule corrompue ne doit jamais bloquer les autres
           });
           renderEverything();saveLocal();persistCellTs();applyingRemote=false;
           syncReady=true;setSync(skipped?("Partagé · "+skipped+" cellule(s) ignorée(s)"):"Partagé · à jour","ok");
+          // Migration transparente : réécrit chaque îlot ancien format en méta + cellules jour.
+          // Idempotent (mêmes valeurs si plusieurs postes migrent), et sans risque de perte
+          // même si un poste modifie un nom d'îlot juste après le déploiement.
+          if(legacyIds.length){
+            legacyIds.forEach(id=>{
+              for(const a of ateliers){const ri=a.ilots.findIndex(r=>r[4]===id);if(ri>=0){pushIlotMeta(ateliers.indexOf(a),ri);for(let i=0;i<5;i++)pushIlotDay(ateliers.indexOf(a),ri,i);break;}}
+            });
+            flushQueue();
+          }
         }else{
           // Base réellement vide -> tout premier amorçage avec les données d'exemple/JSON fourni.
           syncReady=true;seedAllCells();setSync("Partagé · à jour","ok");
@@ -1226,6 +1296,11 @@ const _origAddilot=true; // matrix add/remove pushUndo handled inside renderMatr
   });
   const end=()=>{drawing=false;};
   cv.addEventListener("pointerup",end);cv.addEventListener("pointerleave",end);
+  // Filet de sécurité : neutralise le menu contextuel provoqué par l'appui prolongé du stylet
+  // (Windows Ink « appuyer et maintenir = clic droit »). Le réglage définitif reste côté Windows.
+  cv.addEventListener("contextmenu",e=>e.preventDefault());
+  // Empêche aussi le menu contextuel sur toute la page tant que la plume est active (hors mode défilement).
+  document.addEventListener("contextmenu",e=>{if(active&&!scrollMode)e.preventDefault();});
 })();
 
 /* ---------------- pen bar draggable ---------------- */
@@ -1267,13 +1342,25 @@ function lockUnauthorized(){
     if(!lock){
       lock=document.createElement("div");
       lock.id="unauthorizedLock";
-      lock.style.cssText="position:fixed;inset:0;z-index:99998;background:rgba(255,255,255,0.01);cursor:not-allowed;";
+      // Fond semi-opaque + message CENTRÉ et FIXE : si le verrouillage se déclenche, l'opérateur
+      // voit immédiatement pourquoi l'écran ne répond plus, au lieu de croire que le tactile est mort.
+      lock.style.cssText="position:fixed;inset:0;z-index:99998;background:rgba(20,26,64,0.55);cursor:not-allowed;display:flex;align-items:center;justify-content:center;";
+      lock.innerHTML='<div style="background:#fff;border-radius:14px;padding:28px 34px;max-width:420px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);font-family:Arial,sans-serif;">'
+        +'<div style="font-size:17px;font-weight:bold;color:#B91C1C;margin-bottom:8px;">Accès non autorisé</div>'
+        +'<div style="font-size:13.5px;color:#1E293B;line-height:1.6;">La connexion partagée a été refusée. Aucune modification n\'est enregistrée pour l\'instant. Reconnectez-vous ; si le problème persiste, contactez Giovani.</div>'
+        +'</div>';
+      const relog=document.createElement("button");
+      relog.textContent="Se reconnecter";
+      relog.style.cssText="margin-top:16px;border:none;background:#1E2761;color:#fff;border-radius:8px;padding:10px 18px;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;cursor:pointer;";
+      relog.onclick=()=>{try{firebase.auth().signOut();}catch(_){}setTimeout(()=>location.reload(),200);};
+      lock.querySelector("div").appendChild(relog);
       document.body.appendChild(lock);
     }
-    // 3) désactive explicitement les zones éditables restantes (ceinture + bretelles)
-    document.querySelectorAll("[contenteditable]").forEach(el=>el.setAttribute("contenteditable","false"));
+    // 3) désactive explicitement les zones éditables restantes (ceinture + bretelles),
+    //    SAUF ce qui est à l'intérieur du panneau de verrouillage (bouton de reconnexion).
+    document.querySelectorAll("[contenteditable]").forEach(el=>{if(!lock.contains(el))el.setAttribute("contenteditable","false");});
     document.querySelectorAll("input,button,select,textarea").forEach(el=>{
-      if(el.id!=="unauthorizedLock")el.disabled=true;
+      if(el.id!=="unauthorizedLock"&&!lock.contains(el))el.disabled=true;
     });
   }catch(_){}
   showUnauthorized();
