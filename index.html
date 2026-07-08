@@ -35,6 +35,7 @@
   .loginbox .err{color:var(--red);font-size:12.5px;min-height:18px;margin-top:10px;}
   .loginbox .hint{font-size:11.5px;color:var(--muted2);margin-top:14px;}
   .topbarauth{display:flex;justify-content:flex-end;align-items:center;gap:12px;background:#0E1430;padding:6px 22px;font-size:12.5px;color:#C9CEE6;}
+  .topbarauth #appVer{margin-right:auto;color:#7C87AD;font-size:11px;letter-spacing:1px;}
   .topbarauth button{border:1px solid #ffffff33;background:transparent;color:#fff;border-radius:6px;padding:4px 10px;font-family:inherit;font-size:12px;cursor:pointer;}
   .topbarauth button:hover{background:#ffffff1a;}
   #fatalError{display:none;background:#FEE2E2;border:2px solid var(--red);color:#7A1212;padding:16px 22px;margin:14px 22px;border-radius:10px;font-size:13.5px;line-height:1.6;}
@@ -108,11 +109,32 @@
   tr.ilot td.ilotname .nm{display:inline-block;min-width:120px;}
   tr.ilot td.ilotname .rmilot{position:absolute;left:8px;top:50%;transform:translateY(-50%);border:none;background:transparent;color:var(--muted2);cursor:pointer;font-size:15px;opacity:0;}
   tr.ilot:hover td.ilotname .rmilot{opacity:1;}
-  tr.ilot td.daycell{text-align:center;}
+  tr.ilot td.daycell{text-align:center;padding:3px 4px;}
   tr.ilot td.daycell.today{background:#F3F6FE;}
-  tr.ilot input.qty{width:100%;border:none;background:transparent;text-align:center;font-family:inherit;font-size:15px;padding:9px 4px;outline:none;color:var(--ink);font-variant-numeric:tabular-nums;}
-  tr.ilot input.qty:focus{background:#FFF8E1;box-shadow:inset 0 0 0 2px var(--amber);}
-  tr.ilot td.rowtot{text-align:center;font-weight:bold;background:#F7F9FD;font-variant-numeric:tabular-nums;padding:9px 8px;}
+  /* Cible tactile haute : saisie au stylet sur écran 60" */
+  tr.ilot input.qty{width:100%;min-height:54px;border:1.5px solid transparent;border-radius:8px;background:#FBFCFE;text-align:center;font-family:inherit;font-size:19px;font-weight:bold;padding:10px 4px;outline:none;color:var(--ink);font-variant-numeric:tabular-nums;cursor:pointer;transition:background .12s,border-color .12s;}
+  tr.ilot input.qty:hover{background:#EEF3FF;border-color:#C6D2EC;}
+  tr.ilot input.qty.editing{background:#FFF8E1;border-color:var(--amber);}
+  tr.ilot td.rowtot{text-align:center;font-weight:bold;font-size:17px;background:#F7F9FD;font-variant-numeric:tabular-nums;padding:9px 8px;}
+
+  /* ---------- Pavé numérique (chiffres production) ---------- */
+  #numpad{position:fixed;inset:0;z-index:99000;background:rgba(20,26,64,.55);display:none;align-items:center;justify-content:center;}
+  #numpad.on{display:flex;}
+  .npbox{background:#fff;border-radius:16px;padding:20px 22px 22px;width:360px;box-shadow:0 24px 70px rgba(0,0,0,.45);}
+  .nphead{font-size:13px;color:var(--muted);text-align:center;margin-bottom:2px;}
+  .nphead b{display:block;font-size:17px;color:var(--navy);margin-top:2px;}
+  .npdisp{margin:14px 0 16px;border:2px solid var(--line);border-radius:10px;background:#F7F9FD;text-align:right;padding:14px 16px;font-size:34px;font-weight:bold;color:var(--ink);font-variant-numeric:tabular-nums;min-height:64px;overflow:hidden;}
+  .npdisp.empty{color:var(--muted2);}
+  .npgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .npkey{border:1px solid var(--line);background:#fff;border-radius:10px;height:62px;font-family:inherit;font-size:24px;font-weight:bold;color:var(--ink);cursor:pointer;user-select:none;touch-action:manipulation;}
+  .npkey:hover{background:var(--page);}
+  .npkey:active{background:var(--ice);}
+  .npkey.wide{grid-column:span 2;}
+  .npkey.act{background:var(--navy);color:#fff;border-color:var(--navy);font-size:19px;}
+  .npkey.act:hover{background:var(--navy-deep);}
+  .npkey.warn{color:var(--red);font-size:19px;}
+  .npkey.ghost{background:#F1F4FA;color:var(--muted);font-size:19px;}
+  .npfoot{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
   tr.addilot td{padding:7px 12px 7px 30px;}
   tr.addilot button{border:1.5px dashed var(--line);background:transparent;border-radius:6px;color:var(--muted2);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:13px;}
   tr.addilot button:hover{border-color:var(--navy);color:var(--navy);}
@@ -281,6 +303,7 @@
 <div id="appWrap" style="display:none">
 <div id="fatalError"></div>
 <div class="topbarauth">
+  <span id="appVer" title="Version chargée. Tous les postes doivent afficher la même.">v22</span>
   <span id="whoami"></span>
   <button id="logoutBtn">Se déconnecter</button>
 </div>
@@ -450,6 +473,22 @@
 </div>
 </div><!-- /zoomRoot -->
 
+<div id="numpad">
+  <div class="npbox">
+    <div class="nphead">Chiffre de production · <span id="npDay"></span><b id="npIlot"></b></div>
+    <div class="npdisp empty" id="npDisp">0</div>
+    <div class="npgrid">
+      <button class="npkey" data-d="7">7</button><button class="npkey" data-d="8">8</button><button class="npkey" data-d="9">9</button>
+      <button class="npkey" data-d="4">4</button><button class="npkey" data-d="5">5</button><button class="npkey" data-d="6">6</button>
+      <button class="npkey" data-d="1">1</button><button class="npkey" data-d="2">2</button><button class="npkey" data-d="3">3</button>
+      <button class="npkey ghost" id="npClear">C</button><button class="npkey" data-d="0">0</button><button class="npkey warn" id="npBack">⌫</button>
+    </div>
+    <div class="npfoot">
+      <button class="npkey ghost" id="npCancel">Annuler</button>
+      <button class="npkey act" id="npOk">Valider</button>
+    </div>
+  </div>
+</div>
 <canvas id="penOverlay"></canvas>
 <div id="penBar">
   <div id="penDrag">⠿ déplacer</div>
@@ -604,22 +643,28 @@ function renderMatrix(){
   });
   recompute();
 }
+function escHtml(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function ilotRow(at,ai,r,ri){
+  // Dernier rempart avant le rendu : jamais laisser une ligne mal formée atteindre le DOM.
+  if(!Array.isArray(r[1])||r[1].length!==5)r[1]=normIlotRow(r)?normIlotRow(r)[1]:[0,0,0,0,0];
   const tr=document.createElement("tr");tr.className="ilot grp-"+at.key;
   const tj=r[2]||0,ts=r[3]||0;
-  let cells=`<td class="ilotname"><button class="rmilot" title="Supprimer">×</button><span class="nm" contenteditable data-ph="Nom de l'îlot">${r[0]}</span>`+
+  let cells=`<td class="ilotname"><button class="rmilot" title="Supprimer">×</button><span class="nm" contenteditable data-ph="Nom de l'îlot">${escHtml(r[0])}</span>`+
     `<span class="theo" title="Objectif théorique"><input class="theoj" type="text" inputmode="numeric" value="${tj?fmt(tj):""}" data-at="${ai}" data-ri="${ri}" placeholder="/j"><span class="sep">·</span><input class="theos" type="text" inputmode="numeric" value="${ts?fmt(ts):""}" data-at="${ai}" data-ri="${ri}" placeholder="/sem"></span></td>`;
-  r[1].forEach((v,i)=>cells+=`<td class="daycell${i===TODAY?" today":""}"><input class="qty" type="text" inputmode="numeric" value="${v?fmt(v):""}" data-at="${ai}" data-ri="${ri}" data-di="${i}"></td>`);
+  // Cellules jour : lecture seule + inputmode="none" -> aucun clavier Windows ne s'ouvre,
+  // la saisie passe exclusivement par le pavé numérique tactile.
+  r[1].forEach((v,i)=>cells+=`<td class="daycell${i===TODAY?" today":""}"><input class="qty" type="text" inputmode="none" readonly value="${v?fmt(v):""}" data-at="${ai}" data-ri="${ri}" data-di="${i}"></td>`);
   cells+=`<td class="rowtot" id="rt-${ai}-${ri}">0</td>`;
   tr.innerHTML=cells;
   tr.querySelector(".nm").addEventListener("input",e=>{ateliers[ai].ilots[ri][0]=e.target.textContent;pushIlotMeta(ai,ri);autosave();});
   tr.querySelector(".theoj").addEventListener("input",e=>{const a=ateliers[+e.target.dataset.at].ilots[+e.target.dataset.ri];a[2]=parseNum(e.target.value);pushIlotMeta(+e.target.dataset.at,+e.target.dataset.ri);autosave();});
   tr.querySelector(".theos").addEventListener("input",e=>{const a=ateliers[+e.target.dataset.at].ilots[+e.target.dataset.ri];a[3]=parseNum(e.target.value);pushIlotMeta(+e.target.dataset.at,+e.target.dataset.ri);autosave();});
   tr.querySelector(".rmilot").addEventListener("click",()=>{pushUndo();const id=ateliers[ai].ilots[ri][4];ateliers[ai].ilots.splice(ri,1);renderMatrix();save();if(id){pushDelete("ilot_"+id);for(let i=0;i<5;i++)pushDelete("ild_"+id+"_"+i);}});
-  tr.querySelectorAll("input.qty").forEach(inp=>inp.addEventListener("input",e=>{
-    const a=+e.target.dataset.at,r2=+e.target.dataset.ri,di=+e.target.dataset.di;
-    ateliers[a].ilots[r2][1][di]=parseNum(e.target.value);recompute();pushIlotDay(a,r2,di);autosave();
-  }));
+  tr.querySelectorAll("input.qty").forEach(inp=>{
+    const open=e=>{e.preventDefault();openNumpad(inp);};
+    inp.addEventListener("click",open);
+    inp.addEventListener("focus",()=>openNumpad(inp));
+  });
   return tr;
 }
 function recompute(){
@@ -683,9 +728,48 @@ const SEED={"caData":[23019,19684,16000,0,0],"ateliers":[{"key":"rk","name":"ATE
 let undoStack=[],redoStack=[];
 function serialize(){return JSON.stringify({caData,ateliers,priorites,bloque,machines,soumissions,amelioration,posages,passsup,topVeille,topSemaine,qualite,maintenance,achat,infos,methImages,maintImages});}
 function snap(){return serialize();}
+/* ---------- Normalisation défensive des lignes d'îlot ----------
+   Une ligne d'îlot DOIT être : [nom, [5 nombres], theoJour, theoSem, id].
+   Une version antérieure du tableau pouvait écrire un OBJET à la place de la ligne
+   (elle recevait la cellule "méta" et remplaçait la ligne entière). Ce state cassé
+   se retrouvait dans le localStorage et faisait planter le rendu au démarrage.
+   normIlotRow() répare ce qui est réparable et renvoie null pour ce qui ne l'est pas. */
+function normIlotRow(r){
+  if(Array.isArray(r)){
+    const src=Array.isArray(r[1])?r[1]:[];
+    const days=[0,0,0,0,0].map((_,i)=>{const n=Number(src[i]);return isFinite(n)?n:0;});
+    const id=(typeof r[4]==="string"&&r[4])?r[4]:uid();
+    return [typeof r[0]==="string"?r[0]:"",days,Number(r[2])||0,Number(r[3])||0,id];
+  }
+  if(r&&typeof r==="object"){
+    // Objet méta reçu à la place d'une ligne. On ne peut le récupérer que s'il porte un id.
+    // Sinon la ligne est irrécupérable localement : on la supprime, Firebase la recréera.
+    if(typeof r.id==="string"&&r.id)return [typeof r.n==="string"?r.n:"",[0,0,0,0,0],Number(r.j)||0,Number(r.s)||0,r.id];
+    return null;
+  }
+  return null;
+}
+// Répare tous les ateliers en place. Renvoie le nombre de lignes réparées ou supprimées.
+function sanitizeAteliers(){
+  let fixed=0;
+  ateliers.forEach(a=>{
+    if(!a||!Array.isArray(a.ilots)){if(a)a.ilots=[];return;}
+    const clean=[];
+    a.ilots.forEach(r=>{
+      const n=normIlotRow(r);
+      if(!n){fixed++;return;}                       // ligne irrécupérable -> retirée
+      if(JSON.stringify(n)!==JSON.stringify(r))fixed++;
+      clean.push(n);
+    });
+    a.ilots=clean;
+  });
+  return fixed;
+}
+
 function applyState(s){
   caData.length=0;(s.caData||[]).forEach(v=>caData.push(v));
   ateliers.length=0;(s.ateliers||[]).forEach(a=>ateliers.push(a));
+  sanitizeAteliers();   // ne jamais laisser une ligne mal formée atteindre le rendu
   priorites=s.priorites||[];bloque=s.bloque||[];machines=s.machines||[];soumissions=s.soumissions||[];
   amelioration=s.amelioration||[];posages=s.posages||[];passsup=s.passsup||[];topVeille=s.topVeille||[];
   topSemaine=s.topSemaine||[];qualite=s.qualite||[];maintenance=s.maintenance||[];achat=s.achat||[];infos=s.infos||[];
@@ -757,7 +841,7 @@ let isAuthorized=true;   // passe à false dès qu'un refus Firebase (PERMISSION
 let cellTs={},pendingCells={};   // pendingCells: cellId -> json reçu en attente d'application
 function persistCellTs(){try{localStorage.setItem(KEY+"_cellTs",JSON.stringify(cellTs));}catch(e){}}
 function loadCellTs(){try{const t=localStorage.getItem(KEY+"_cellTs");if(t)cellTs=JSON.parse(t);}catch(e){}}
-function isEditing(){const a=document.activeElement;return a&&a.matches&&a.matches("[contenteditable],input");}
+function isEditing(){if(typeof numpadOpen!=="undefined"&&numpadOpen)return true;const a=document.activeElement;return a&&a.matches&&a.matches("[contenteditable],input");}
 
 let _pendingPush={};   // cellId -> valeur (objet JS) à envoyer, regroupées avant envoi débouncé
 let _pushTimer=null;
@@ -784,7 +868,9 @@ function pushCA(dayIdx){queueCell("ca"+dayIdx,caData[dayIdx]);}
 //  - "ilot_{id}"     = métadonnées de la ligne {n:nom, j:théo/j, s:théo/sem, k:atelier}  (SANS les chiffres jour)
 //  - "ild_{id}_{i}"  = le chiffre du jour i (0..4) de cet îlot, chacun sa propre cellule
 // Ainsi deux personnes qui saisissent des jours différents du MÊME îlot n'écrasent plus la ligne entière.
-function pushIlotMeta(ai,ri){const r=ateliers[ai].ilots[ri];const id=r[4];if(id)queueCell("ilot_"+id,{n:r[0],j:r[2]||0,s:r[3]||0,k:ateliers[ai].key});}
+// La méta embarque son propre id : si un client d'une version antérieure écrase une ligne
+// avec cet objet, normIlotRow() peut la reconstruire au lieu de la perdre.
+function pushIlotMeta(ai,ri){const r=ateliers[ai].ilots[ri];const id=r[4];if(id)queueCell("ilot_"+id,{n:r[0],j:r[2]||0,s:r[3]||0,k:ateliers[ai].key,id});}
 function pushIlotDay(ai,ri,di){const r=ateliers[ai].ilots[ri];const id=r[4];if(id)queueCell("ild_"+id+"_"+di,r[1][di]||0);}
 // Helper : pousse la ligne complète (méta + les 5 jours). Utilisé pour l'ajout d'îlot, le reseed et la RAZ.
 function pushIlot(ai,ri){const r=ateliers[ai].ilots[ri];const id=r[4];if(!id)return;pushIlotMeta(ai,ri);for(let i=0;i<5;i++)pushIlotDay(ai,ri,i);}
@@ -838,25 +924,30 @@ function applyCellValue(cellId,val){
       if(!ateliers.length)return;
       const row=["", [0,0,0,0,0],0,0,id];ateliers[0].ilots.push(row);f={row};
     }
-    f.row[1][di]=val;
+    if(!Array.isArray(f.row[1]))f.row[1]=[0,0,0,0,0];
+    const n=Number(val);f.row[1][di]=isFinite(n)?n:0;
     return;
   }
   // Métadonnées d'un îlot : "ilot_{id}"  (nouvel objet {n,j,s,k}, ou ancien format = ligne entière)
   if(cellId.startsWith("ilot_")){
     const targetId=cellId.slice(5);
-    if(Array.isArray(val)){ // rétrocompat : ancienne cellule "ligne entière"
+    if(Array.isArray(val)){ // rétrocompat : ancienne cellule "ligne entière" -> toujours normalisée
+      const row=normIlotRow(val);if(!row)return;
+      row[4]=targetId;
       const f=findIlot(targetId);
-      if(f){f.a.ilots[f.i]=val;}else if(ateliers.length){ateliers[0].ilots.push(val);}
+      if(f){f.a.ilots[f.i]=row;}else if(ateliers.length){ateliers[0].ilots.push(row);}
       return;
     }
+    if(!val||typeof val!=="object")return;
     // nouvel objet méta : ne touche PAS aux chiffres jour (r[1]), qui vivent dans les cellules "ild_"
     const f=findIlot(targetId);
     if(f){
+      if(!Array.isArray(f.row[1]))f.row[1]=[0,0,0,0,0];   // ceinture : la ligne doit rester rendable
       if(typeof val.n==="string")f.row[0]=val.n;
-      f.row[2]=val.j||0;f.row[3]=val.s||0;
+      f.row[2]=Number(val.j)||0;f.row[3]=Number(val.s)||0;
     }else{
       const at=atelierByKey(val.k);if(!at)return;
-      at.ilots.push([val.n||"", [0,0,0,0,0], val.j||0, val.s||0, targetId]);
+      at.ilots.push([typeof val.n==="string"?val.n:"", [0,0,0,0,0], Number(val.j)||0, Number(val.s)||0, targetId]);
     }
     return;
   }
@@ -892,7 +983,7 @@ function seedAllCells(){
   // tout premier amorçage d'une base vide : on pousse chaque cellule individuellement
   caData.forEach((v,i)=>queueCell("ca"+i,v));
   passsup.forEach((row,i)=>queueCell("passsup"+i,row));
-  ateliers.forEach(a=>a.ilots.forEach(r=>{if(r[4]){queueCell("ilot_"+r[4],{n:r[0],j:r[2]||0,s:r[3]||0,k:a.key});for(let i=0;i<5;i++)queueCell("ild_"+r[4]+"_"+i,r[1][i]||0);}}));
+  ateliers.forEach(a=>a.ilots.forEach(r=>{if(r[4]){queueCell("ilot_"+r[4],{n:r[0],j:r[2]||0,s:r[3]||0,k:a.key,id:r[4]});for(let i=0;i<5;i++)queueCell("ild_"+r[4]+"_"+i,r[1][i]||0);}}));
   Object.keys(LIST_VARS).forEach(section=>{LIST_VARS[section]().forEach(it=>{const id=itemId(it);if(id)queueCell("card_"+section+"_"+id,it);});});
   flushQueue();
 }
@@ -1249,6 +1340,84 @@ if(prioAdd)prioAdd.onclick=()=>{pushUndo();const np=["","",uid()];priorites.push
 
 /* ---------------- structural undo for matrix ---------------- */
 const _origAddilot=true; // matrix add/remove pushUndo handled inside renderMatrix patch below
+
+/* ---------------- pavé numérique tactile (chiffres de production uniquement) ----------------
+   Les cellules jour de la matrice sont en lecture seule : le seul moyen de les modifier est
+   ce pavé. Objectif : saisie fiable au stylet sur l'écran 60", sans clavier Windows,
+   et sans caractère parasite dans les chiffres PCS. */
+var numpadOpen=false;   // var volontaire : isEditing() est défini plus haut et peut y accéder
+let _npInput=null,_npBuf="",_npFresh=true,_npSnap=null;
+const NP_MAXLEN=7;
+function npRefresh(){
+  const d=document.getElementById("npDisp");if(!d)return;
+  d.textContent=fmt(parseInt(_npBuf||"0",10)||0);
+  d.classList.toggle("empty",_npBuf===""||_npBuf==="0");
+}
+function openNumpad(inp){
+  if(!inp)return;
+  if(numpadOpen&&_npInput===inp)return;
+  if(numpadOpen)closeNumpad(false);
+  const ai=+inp.dataset.at,ri=+inp.dataset.ri,di=+inp.dataset.di;
+  const at=ateliers[ai];const row=at&&at.ilots[ri];
+  if(!row)return;
+  _npInput=inp;_npSnap=snap();
+  _npBuf=String(row[1][di]||0);_npFresh=true;   // 1re touche = remplace, ⌫ = corrige
+  const li=document.getElementById("npIlot"),ld=document.getElementById("npDay");
+  if(li)li.textContent=row[0]||"(îlot sans nom)";
+  if(ld)ld.textContent=DAYS[di]||"";
+  npRefresh();
+  numpadOpen=true;
+  document.getElementById("numpad").classList.add("on");
+  inp.classList.add("editing");
+  try{inp.blur();}catch(_){}
+}
+function closeNumpad(commit){
+  if(!numpadOpen)return;
+  const inp=_npInput;
+  if(commit&&inp){
+    const ai=+inp.dataset.at,ri=+inp.dataset.ri,di=+inp.dataset.di;
+    const at=ateliers[ai];const row=at&&at.ilots[ri];
+    if(row){
+      const val=parseInt(_npBuf||"0",10)||0;
+      if(row[1][di]!==val){
+        pushUndo(_npSnap);                 // "Annuler" ramène bien à l'état d'avant la saisie
+        row[1][di]=val;
+        inp.value=val?fmt(val):"";
+        recompute();pushIlotDay(ai,ri,di);autosave();
+      }
+    }
+  }
+  if(inp)inp.classList.remove("editing");
+  numpadOpen=false;_npInput=null;_npBuf="";_npSnap=null;
+  document.getElementById("numpad").classList.remove("on");
+  // Une mise à jour distante reçue pendant la saisie a été mise en attente : on l'applique maintenant.
+  setTimeout(()=>{if(!isEditing()&&Object.keys(pendingCells).length)flushPendingCells();},60);
+}
+(function(){
+  const pad=document.getElementById("numpad");if(!pad)return;
+  const press=d=>{
+    if(_npFresh){_npBuf=d;_npFresh=false;}
+    else if(_npBuf.length<NP_MAXLEN)_npBuf=(_npBuf==="0"?"":_npBuf)+d;
+    npRefresh();
+  };
+  pad.querySelectorAll(".npkey[data-d]").forEach(b=>b.addEventListener("click",()=>press(b.dataset.d)));
+  document.getElementById("npBack").addEventListener("click",()=>{_npFresh=false;_npBuf=_npBuf.slice(0,-1);npRefresh();});
+  document.getElementById("npClear").addEventListener("click",()=>{_npFresh=false;_npBuf="";npRefresh();});
+  document.getElementById("npOk").addEventListener("click",()=>closeNumpad(true));
+  document.getElementById("npCancel").addEventListener("click",()=>closeNumpad(false));
+  // Clic hors de la boîte = annuler (pas de validation involontaire)
+  pad.addEventListener("click",e=>{if(e.target===pad)closeNumpad(false);});
+  // L'appui prolongé du stylet ne doit jamais ouvrir de menu contextuel sur le pavé
+  pad.addEventListener("contextmenu",e=>e.preventDefault());
+  // Clavier physique, pratique hors réunion
+  document.addEventListener("keydown",e=>{
+    if(!numpadOpen)return;
+    if(e.key>="0"&&e.key<="9"){press(e.key);e.preventDefault();}
+    else if(e.key==="Backspace"){_npFresh=false;_npBuf=_npBuf.slice(0,-1);npRefresh();e.preventDefault();}
+    else if(e.key==="Enter"){closeNumpad(true);e.preventDefault();}
+    else if(e.key==="Escape"){closeNumpad(false);e.preventDefault();}
+  });
+})();
 
 /* ---------------- full-page pen overlay (annotate over the page) ---------------- */
 (function(){
